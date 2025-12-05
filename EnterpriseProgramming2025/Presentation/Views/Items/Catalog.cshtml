@@ -1,0 +1,21 @@
+﻿@model IEnumerable<Domain.Interfaces.IItemValidating>
+
+@{
+    ViewData["Title"] = "Catalog";
+}
+
+<h2>Catalog</h2>
+
+@if (!Model.Any())
+{
+    <p>No items found.</p>
+}
+else
+{
+    <div>
+        @foreach (var item in Model)
+        {
+            <partial name="@item.GetCardPartial()" model="item" />
+        }
+    </div>
+}

@@ -1,38 +1,49 @@
 ﻿using Domain.Interfaces;
 using Domain.Models;
-using Microsoft.Extensions.Caching.Memory;
+
+namespace Infrastructure.Repositories;
 
 public class ItemsInMemoryRepository : IItemsRepository
 {
-    private readonly IMemoryCache _cache;
+    private List<Restaurant> _restaurants = new();
+    private List<MenuItem> _menuItems = new();
 
-    public ItemsInMemoryRepository(IMemoryCache cache)
+    public IQueryable<Restaurant> GetRestaurants(string status = "Approved")
     {
-        _cache = cache;
+        return _restaurants
+            .Where(r => r.Status == status)
+            .AsQueryable();
     }
 
-    public IQueryable<Restaurant> GetRestaurants(string status = "Pending")
+    public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string status = "Approved")
     {
-        var list = _cache.Get<List<Restaurant>>("pending_restaurants") ?? new List<Restaurant>();
-        return list.AsQueryable();
-    }
+        var items = _menuItems.Where(m => m.Status == status);
 
-    public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string status = "Pending")
-    {
-        var list = _cache.Get<List<MenuItem>>("pending_menuitems") ?? new List<MenuItem>();
-        return list.AsQueryable();
+        if (restaurantId != null)
+            items = items.Where(m => m.RestaurantId == restaurantId);
+
+        return items.AsQueryable();
     }
 
     public void SaveRestaurants(IEnumerable<Restaurant> restaurants)
     {
-        _cache.Set("pending_restaurants", restaurants.ToList());
+        _restaurants = restaurants.ToList();
     }
 
     public void SaveMenuItems(IEnumerable<MenuItem> items)
     {
-        _cache.Set("pending_menuitems", items.ToList());
+        _menuItems = items.ToList();
     }
 
-    public void ApproveRestaurants(IEnumerable<int> ids) { }
-    public void ApproveMenuItems(IEnumerable<Guid> ids) { }
+    public void ApproveRestaurants(IEnumerable<int> ids)
+    {
+        foreach (var r in _restaurants.Where(r => ids.Contains(r.Id)))
+            r.Status = "Approved";
+    }
+
+    public void ApproveMenuItems(IEnumerable<Guid> ids)
+    {
+        foreach (var m in _menuItems.Where(m => ids.Contains(m.Id)))
+            m.Status = "Approved";
+    }
 }

@@ -1,8 +1,10 @@
+using Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using EnterpriseProgramming2025.Data;
 using Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+using EnterpriseProgramming2025.Presentation.Factory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,12 +16,19 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddRazorOptions(options =>
+    {
+        options.ViewLocationFormats.Add("/Presentation/Views/{1}/{0}.cshtml");
+        options.ViewLocationFormats.Add("/Presentation/Views/Shared/{0}.cshtml");
+    });
 
+builder.Services.AddSingleton<ImportItemFactory>();
 builder.Services.AddMemoryCache();
 
 builder.Services.AddKeyedScoped<IItemsRepository, ItemsInMemoryRepository>("memory");
 builder.Services.AddKeyedScoped<IItemsRepository, ItemsDbRepository>("db");
+
 
 
 

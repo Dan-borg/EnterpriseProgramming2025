@@ -1,0 +1,18 @@
+﻿@model Domain.Models.Restaurant
+
+<div class="card mb-3 p-3" style="border: 1px solid #ddd;">
+    <h4>@Model.Name</h4>
+    <p>@Model.Description</p>
+    <p><strong>Owner:</strong> @Model.OwnerEmailAddress</p>
+
+    @if (!string.IsNullOrEmpty(Model.ImagePath))
+    {
+        <img src="@Model.ImagePath" width="150" />
+    }
+
+    <p>Status: @Model.Status</p>
+
+    <a class="btn btn-primary" href="/Items/Catalog?restaurantId=@Model.Id">
+        View Menu Items
+    </a>
+</div>

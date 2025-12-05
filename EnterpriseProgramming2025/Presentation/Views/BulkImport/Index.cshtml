@@ -1,0 +1,19 @@
+﻿@{
+    ViewData["Title"] = "Bulk Import";
+}
+
+<h2>Bulk Import</h2>
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-danger">@ViewBag.Error</div>
+}
+
+<form method="post" asp-action="Preview">
+    <div class="form-group mb-3">
+        <label>Paste JSON Here</label>
+        <textarea name="jsonInput" class="form-control" rows="10" placeholder="Paste JSON from Appendix A"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Preview Items</button>
+</form>
