@@ -2,6 +2,7 @@
 using Domain.Interfaces;
 using Domain.Models;
 using EnterpriseProgramming2025.Presentation.Factory;
+using EnterpriseProgramming2025.Presentation.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EnterpriseProgramming2025.Presentation.Controllers
@@ -28,6 +29,7 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
 
         // POST: convert JSON → objects and show preview
         [HttpPost]
+        [ValidateItem]
         public IActionResult Preview(string jsonInput)
         {
             if (string.IsNullOrWhiteSpace(jsonInput))
@@ -110,6 +112,7 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
 
         // Commit to database placeholder
         [HttpPost]
+        [ValidateItem]
         public IActionResult Commit(IFormFile zipFile,
     [FromKeyedServices("db")] IItemsRepository dbRepo)
         {
