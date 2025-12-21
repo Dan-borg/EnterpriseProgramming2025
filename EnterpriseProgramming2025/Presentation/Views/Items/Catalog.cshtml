@@ -1,10 +1,17 @@
-﻿@model IEnumerable<Domain.Interfaces.IItemValidating>
+﻿@using Domain.Interfaces
+@model IEnumerable<ItemValidating>
 
 @{
     ViewData["Title"] = "Catalog";
+    var viewMode = ViewBag.ViewMode as string ?? "card";
 }
 
-<h2>Catalog</h2>
+<h2>Catalog (@viewMode)</h2>
+
+<div class="mb-3">
+    <a asp-action="Catalog" asp-route-restaurantId="" asp-route-view="card" class="btn btn-primary">Restaurants (Card)</a>
+    <a asp-action="Catalog" asp-route-restaurantId="" asp-route-view="row" class="btn btn-secondary">Restaurants (Row)</a>
+</div>
 
 @if (!Model.Any())
 {
@@ -12,10 +19,8 @@
 }
 else
 {
-    <div>
-        @foreach (var item in Model)
-        {
-            <partial name="@item.GetCardPartial()" model="item" />
-        }
-    </div>
+    foreach (var item in Model)
+    {
+        @await Html.PartialAsync(item.GetCardPartial(), item)
+    }
 }

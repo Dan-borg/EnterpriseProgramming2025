@@ -1,33 +1,22 @@
-using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using EnterpriseProgramming2025.Presentation.Models;
-using EnterpriseProgramming2025.Presentation.Controllers;
 
-
-namespace EnterpriseProgramming2025.Presentation.Controllers;
-
-public class HomeController : Controller
+namespace EnterpriseProgramming2025.Presentation.Controllers
 {
-    private readonly ILogger<HomeController> _logger;
-
-    public HomeController(ILogger<HomeController> logger)
+    [Authorize]
+    public class HomeController : Controller
     {
-        _logger = logger;
-    }
+        public IActionResult Index()
+        {
+            if (User.IsInRole("Admin"))
+                return RedirectToAction("Restaurants", "Approval");
 
-    public IActionResult Index()
-    {
-        return View();
-    }
+            return RedirectToAction("Catalog", "Items");
+        }
 
-    public IActionResult Privacy()
-    {
-        return View();
-    }
-
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error()
-    {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        public IActionResult Privacy()
+        {
+            return View();
+        }
     }
 }

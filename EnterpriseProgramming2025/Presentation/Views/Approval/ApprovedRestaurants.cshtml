@@ -1,0 +1,34 @@
+﻿@model IEnumerable<Domain.Models.Restaurant>
+
+@{
+    ViewData["Title"] = "Approved Restaurants";
+}
+
+<h2 class="mb-3">Approved Restaurants</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No restaurants approved yet.</div>
+}
+else
+{
+    <table class="table table-bordered table-striped">
+        <thead class="table-light">
+            <tr>
+                <th>Name</th>
+                <th>Owner Email</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model)
+            {
+                <tr>
+                    <td>@r.Name</td>
+                    <td>@r.OwnerEmailAddress</td>
+                    <td>@r.Description</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

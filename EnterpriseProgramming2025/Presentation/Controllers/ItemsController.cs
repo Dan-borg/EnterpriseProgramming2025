@@ -1,30 +1,36 @@
 ﻿using Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace EnterpriseProgramming2025.Presentation.Controllers
 {
+    [Authorize]
     public class ItemsController : Controller
     {
-        private readonly IItemsRepository _dbRepo;
+        private readonly ItemsRepository dbRepo;
 
-        public ItemsController([FromKeyedServices("db")] IItemsRepository dbRepo)
+        public ItemsController([FromKeyedServices("db")] ItemsRepository dbRepo)
         {
-            _dbRepo = dbRepo;
+            this.dbRepo = dbRepo;
         }
 
-        // Shows approved restaurants or menu items
-        public IActionResult Catalog(int? restaurantId)
+        public IActionResult Catalog(int? restaurantId, string view = "card")
         {
+            ViewBag.ViewMode = view;
+
             if (restaurantId == null)
             {
-                // Load all approved restaurants
-                var restaurants = _dbRepo.GetRestaurants(status: "Approved").ToList();
+                var restaurants = dbRepo.GetRestaurants("Approved")
+                    .Cast<Domain.Interfaces.ItemValidating>()
+                    .ToList();
                 return View(restaurants);
             }
             else
             {
-                // Load approved menu items for one restaurant
-                var menuItems = _dbRepo.GetMenuItems(restaurantId: restaurantId, status: "Approved").ToList();
+                var menuItems = dbRepo.GetMenuItems(restaurantId.Value, "Approved")
+                    .Cast<Domain.Interfaces.ItemValidating>()
+                    .ToList();
                 return View(menuItems);
             }
         }

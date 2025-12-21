@@ -1,34 +1,39 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Domain.Interfaces;
 
 namespace Domain.Models
 {
-    public class Restaurant : IItemValidating
+    public class Restaurant : ItemValidating
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [Required]
-        public string OwnerEmailAddress { get; set; }
+        public string OwnerEmailAddress { get; set; } = string.Empty;
 
         public string? Description { get; set; }
+
         public string? ImagePath { get; set; }
 
+        [Required]
         public string Status { get; set; } = "Pending";
 
         public List<string> GetValidators()
         {
-            return new List<string> { OwnerEmailAddress };
+            // Owner + hardcoded Site Admin
+            return new List<string> { OwnerEmailAddress, "admin@site.com" };
         }
 
         public string GetCardPartial()
         {
-            return "_RestaurantCard";
+            return "/Presentation/Views/Items/_RestaurantCard.cshtml";
         }
+
     }
 }

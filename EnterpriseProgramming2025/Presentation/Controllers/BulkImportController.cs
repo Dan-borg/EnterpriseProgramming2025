@@ -2,198 +2,165 @@
 using Domain.Interfaces;
 using Domain.Models;
 using EnterpriseProgramming2025.Presentation.Factory;
-using EnterpriseProgramming2025.Presentation.Filters;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+using EnterpriseProgramming2025.Data;
 
 namespace EnterpriseProgramming2025.Presentation.Controllers
 {
+    [Authorize(Roles = "Admin")]
     public class BulkImportController : Controller
     {
-        private readonly ImportItemFactory _factory;
-        private readonly IItemsRepository _memoryRepo;
+        private readonly ImportItemFactory factory;
+        private readonly ItemsRepository memoryRepo;
+        private readonly ItemsRepository dbRepo;
+        private readonly IWebHostEnvironment env;
 
         public BulkImportController(
             ImportItemFactory factory,
-            [FromKeyedServices("memory")] IItemsRepository memoryRepo)
+            [FromKeyedServices("memory")] ItemsRepository memoryRepo,
+            [FromKeyedServices("db")] ItemsRepository dbRepo,
+            IWebHostEnvironment env)
         {
-            _factory = factory;
-            _memoryRepo = memoryRepo;
+            this.factory = factory;
+            this.memoryRepo = memoryRepo;
+            this.dbRepo = dbRepo;
+            this.env = env;
         }
 
-        // First page: user pastes JSON
         [HttpGet]
-        public IActionResult Index()
-        {
-            return View();
-        }
+        public IActionResult Index() => View();
 
-        // POST: convert JSON → objects and show preview
         [HttpPost]
-        [ValidateItem]
+        [AllowAnonymous]
         public IActionResult Preview(string jsonInput)
         {
-            if (string.IsNullOrWhiteSpace(jsonInput))
+            ViewBag.JsonInput = jsonInput;
+
+            var items = factory.Create(jsonInput);
+            if (!items.Any())
             {
-                ViewBag.Error = "JSON input is required.";
+                ViewBag.Error = "No valid items found.";
                 return View("Index");
             }
 
-            // Parse JSON into models
-            var items = _factory.Create(jsonInput);
-
-            // Separate by type
             var restaurants = items.OfType<Restaurant>().ToList();
             var menuItems = items.OfType<MenuItem>().ToList();
 
-            // Save to memory repo (preview only, not DB yet)
-            _memoryRepo.SaveRestaurants(restaurants);
-            _memoryRepo.SaveMenuItems(menuItems);
+            memoryRepo.Clear();
+            memoryRepo.SaveRestaurants(restaurants);
+            memoryRepo.SaveMenuItems(menuItems);
 
-            return View(items); // Show preview page
+            ViewBag.Items = items;
+            ViewBag.RestaurantCount = restaurants.Count;
+            ViewBag.MenuItemCount = menuItems.Count;
+
+            return View("Index");
         }
 
-        // ZIP generation placeholder
         [HttpPost]
-        public IActionResult GenerateZip()
+        [AllowAnonymous]
+        public IActionResult DownloadZip()
         {
-            // Load pending items from the memory repo
-            var restaurants = _memoryRepo.GetRestaurants().ToList();
-            var menuItems = _memoryRepo.GetMenuItems().ToList();
+            var restaurants = memoryRepo.GetRestaurants().ToList();
+            var menuItems = memoryRepo.GetMenuItems().ToList();
 
-            // Create temporary folder
-            var tempFolder = Path.Combine(Path.GetTempPath(), "importZip_" + Guid.NewGuid());
-            Directory.CreateDirectory(tempFolder);
+            if (!restaurants.Any() && !menuItems.Any())
+                return BadRequest("No items in memory.");
 
-            // Create subfolders
-            var restaurantsFolder = Path.Combine(tempFolder, "restaurants");
-            var menuItemsFolder = Path.Combine(tempFolder, "menuitems");
-            Directory.CreateDirectory(restaurantsFolder);
-            Directory.CreateDirectory(menuItemsFolder);
+            using var ms = new MemoryStream();
 
-            // Path to a default image (we will provide one)
-            var defaultImagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "default.jpg");
-
-            // If you don't have a default.jpg yet, create a blank file
-            if (!System.IO.File.Exists(defaultImagePath))
+            using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
             {
-                System.IO.File.WriteAllText(defaultImagePath, "placeholder");
-            }
-
-            // Build folder structure: restaurants
-            foreach (var r in restaurants)
-            {
-                var folder = Path.Combine(restaurantsFolder, r.Id.ToString());
-                Directory.CreateDirectory(folder);
-
-                var dest = Path.Combine(folder, "default.jpg");
-                System.IO.File.Copy(defaultImagePath, dest, true);
-            }
-
-            // Build folder structure: menu items
-            foreach (var m in menuItems)
-            {
-                var folder = Path.Combine(menuItemsFolder, m.Id.ToString());
-                Directory.CreateDirectory(folder);
-
-                var dest = Path.Combine(folder, "default.jpg");
-                System.IO.File.Copy(defaultImagePath, dest, true);
-            }
-
-            // Create ZIP file
-            var zipPath = tempFolder + ".zip";
-            ZipFile.CreateFromDirectory(tempFolder, zipPath);
-
-            var zipBytes = System.IO.File.ReadAllBytes(zipPath);
-
-            // Return the file to the user
-            return File(zipBytes, "application/zip", "images.zip");
-        }
-
-
-        // Commit to database placeholder
-        [HttpPost]
-        [ValidateItem]
-        public IActionResult Commit(IFormFile zipFile,
-    [FromKeyedServices("db")] IItemsRepository dbRepo)
-        {
-            if (zipFile == null || zipFile.Length == 0)
-                return Content("ZIP file is required.");
-
-            // 1) Create temp folder
-            var tempFolder = Path.Combine(Path.GetTempPath(), "uploadedZip_" + Guid.NewGuid());
-            Directory.CreateDirectory(tempFolder);
-
-            // 2) Save uploaded ZIP to temp
-            var zipPath = Path.Combine(tempFolder, "uploaded.zip");
-            using (var stream = new FileStream(zipPath, FileMode.Create))
-            {
-                zipFile.CopyTo(stream);
-            }
-
-            // 3) Extract ZIP
-            ZipFile.ExtractToDirectory(zipPath, tempFolder);
-
-            // 4) Get restaurants and menu items from memory repo
-            var restaurants = _memoryRepo.GetRestaurants().ToList();
-            var menuItems = _memoryRepo.GetMenuItems().ToList();
-
-            // 5) Create target images folder
-            var imagesRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images");
-            Directory.CreateDirectory(imagesRoot);
-
-            // Copy restaurant images
-            foreach (var r in restaurants)
-            {
-                var srcFolder = Path.Combine(tempFolder, "restaurants", r.Id.ToString());
-
-                if (Directory.Exists(srcFolder))
+                foreach (var r in restaurants)
                 {
-                    var destFolder = Path.Combine(imagesRoot, "restaurants", r.Id.ToString());
-                    Directory.CreateDirectory(destFolder);
+                    var entry = zip.CreateEntry($"item-{r.Id}/default.jpg");
+                    using var stream = entry.Open();
+                    stream.WriteByte(0); 
+                }
 
-                    foreach (var file in Directory.GetFiles(srcFolder))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var target = Path.Combine(destFolder, fileName);
-
-                        System.IO.File.Copy(file, target, true);
-                        r.ImagePath = "/images/restaurants/" + r.Id + "/" + fileName;
-                    }
+                foreach (var m in menuItems)
+                {
+                    var entry = zip.CreateEntry($"item-{m.Id}/default.jpg");
+                    using var stream = entry.Open();
+                    stream.WriteByte(0);
                 }
             }
 
-            // Copy menu item images
-            foreach (var m in menuItems)
+            ms.Position = 0; 
+
+            return File(ms.ToArray(), "application/zip", "items.zip");
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public IActionResult Commit(IFormFile zipFile)
+        {
+            var restaurants = memoryRepo.GetRestaurants().ToList();
+            var menuItems = memoryRepo.GetMenuItems().ToList();
+
+            if (!restaurants.Any() && !menuItems.Any())
+                return BadRequest("Nothing to commit.");
+
+            var imagesDir = Path.Combine(env.WebRootPath, "images");
+            Directory.CreateDirectory(imagesDir);
+
+            using (var zip = new ZipArchive(zipFile.OpenReadStream()))
             {
-                var srcFolder = Path.Combine(tempFolder, "menuitems", m.Id.ToString());
-
-                if (Directory.Exists(srcFolder))
+                foreach (var entry in zip.Entries.Where(e => e.Name == "default.jpg"))
                 {
-                    var destFolder = Path.Combine(imagesRoot, "menuitems", m.Id.ToString());
-                    Directory.CreateDirectory(destFolder);
+                    var id = Path.GetDirectoryName(entry.FullName)?.Replace("item-", "");
+                    var imgName = $"{Guid.NewGuid()}.jpg";
+                    var fullPath = Path.Combine(imagesDir, imgName);
+                    entry.ExtractToFile(fullPath, true);
 
-                    foreach (var file in Directory.GetFiles(srcFolder))
-                    {
-                        var fileName = Path.GetFileName(file);
-                        var target = Path.Combine(destFolder, fileName);
+                    var rel = $"images/{imgName}";
 
-                        System.IO.File.Copy(file, target, true);
-                        m.ImagePath = "/images/menuitems/" + m.Id + "/" + fileName;
-                    }
+                    if (int.TryParse(id, out var rid))
+                        restaurants.First(r => r.Id == rid).ImagePath = rel;
+
+                    if (Guid.TryParse(id, out var mid))
+                        menuItems.First(m => m.Id == mid).ImagePath = rel;
                 }
             }
 
-            // 6) Save to database repo
+            // 1. Save restaurants FIRST
             dbRepo.SaveRestaurants(restaurants);
+
+            // 2. Reload saved restaurants WITH tracking
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var savedRestaurants = dbContext.Restaurants.ToList();
+
+            // 3. Attach Restaurant entity to each MenuItem
+            
+                foreach (var m in menuItems)
+                {
+                    if (m.Restaurant == null)
+                        continue;
+
+                    var ownerEmail = m.Restaurant.OwnerEmailAddress;
+
+                    var dbRestaurant = savedRestaurants
+                        .FirstOrDefault(r => r.OwnerEmailAddress == ownerEmail);
+
+                    if (dbRestaurant == null)
+                        continue;
+
+                    m.RestaurantId = dbRestaurant.Id;
+                }
+            
+
+            // 4. Save menu items
             dbRepo.SaveMenuItems(menuItems);
 
-            // 7) memory repo
-            _memoryRepo.SaveRestaurants(new List<Restaurant>());
-            _memoryRepo.SaveMenuItems(new List<MenuItem>());
+            // 5. Clear memory
+            memoryRepo.Clear();
 
 
-            // 8) Redirect to catalog
-            return RedirectToAction("Catalog", "Items");
+            return RedirectToAction("Restaurants", "Approval");
         }
 
     }

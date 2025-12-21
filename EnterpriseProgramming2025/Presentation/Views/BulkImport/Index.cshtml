@@ -1,5 +1,10 @@
-﻿@{
+﻿@using Domain.Interfaces
+@using Domain.Models
+@{
     ViewData["Title"] = "Bulk Import";
+    var items = ViewBag.Items as List<ItemValidating>;
+    int restaurantCount = ViewBag.RestaurantCount ?? 0;
+    int menuItemCount = ViewBag.MenuItemCount ?? 0;
 }
 
 <h2>Bulk Import</h2>
@@ -10,10 +15,59 @@
 }
 
 <form method="post" asp-action="Preview">
-    <div class="form-group mb-3">
-        <label>Paste JSON Here</label>
-        <textarea name="jsonInput" class="form-control" rows="10" placeholder="Paste JSON from Appendix A"></textarea>
+    <div class="mb-3">
+        <label class="form-label">JSON input</label>
+        <textarea name="jsonInput" class="form-control" rows="10">@ViewBag.JsonInput</textarea>
     </div>
-
-    <button type="submit" class="btn btn-primary">Preview Items</button>
+    <button type="submit" class="btn btn-primary">1) Preview</button>
 </form>
+
+@if (items != null && items.Any())
+{
+    <hr />
+    <h4>Preview (@restaurantCount restaurants, @menuItemCount menu items)</h4>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Name / Title</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                if (item is Restaurant r)
+                {
+                    <tr>
+                        <td>Restaurant</td>
+                        <td>@r.Name</td>
+                        <td>@r.OwnerEmailAddress</td>
+                    </tr>
+                }
+                else if (item is MenuItem m)
+                {
+                    <tr>
+                        <td>Menu Item</td>
+                        <td>@m.Title</td>
+                        <td>@m.Price</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <form method="post" asp-action="DownloadZip">
+        <button type="submit" class="btn btn-success">2) Download ZIP</button>
+    </form>
+
+    <hr />
+    <h4>3) Upload ZIP and Commit</h4>
+    <form method="post" asp-action="Commit" enctype="multipart/form-data">
+        <div class="mb-3">
+            <input type="file" name="zipFile" class="form-control" accept=".zip" />
+        </div>
+        <button type="submit" class="btn btn-warning">Commit to Database</button>
+    </form>
+}

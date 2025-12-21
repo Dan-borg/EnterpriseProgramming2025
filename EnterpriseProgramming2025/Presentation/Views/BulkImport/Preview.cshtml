@@ -1,19 +1,17 @@
-﻿@model IEnumerable<Domain.Interfaces.IItemValidating>
-
+﻿@model IEnumerable<Domain.Interfaces.ItemValidating>
 @{
     ViewData["Title"] = "Preview Import";
 }
 
 <h2>Preview Import</h2>
-
 <p>This is a preview of the items found in your JSON.</p>
 
 <table class="table table-bordered">
     <thead>
         <tr>
             <th>Type</th>
-            <th>Name / Title</th>
-            <th>Owner / Price</th>
+            <th>Name/Title</th>
+            <th>Owner/Price</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -22,39 +20,46 @@
         {
             if (item is Domain.Models.Restaurant r)
             {
-                        <tr>
-                            <td>Restaurant</td>
-                            <td>@r.Name</td>
-                            <td>@r.OwnerEmailAddress</td>
-                            <td>@r.Status</td>
-                        </tr>
+                <tr>
+                    <td>Restaurant</td>
+                    <td>@r.Name</td>
+                    <td>@r.OwnerEmailAddress</td>
+                    <td>@r.Status</td>
+                </tr>
             }
             else if (item is Domain.Models.MenuItem m)
             {
-                        <tr>
-                            <td>Menu Item</td>
-                            <td>@m.Title</td>
-                            <td>€@m.Price</td>
-                            <td>@m.Status</td>
-                        </tr>
+                <tr>
+                    <td>Menu Item</td>
+                    <td>@m.Title</td>
+                    <td>@m.Price</td>
+                    <td>@m.Status</td>
+                </tr>
             }
         }
     </tbody>
 </table>
 
-<form method="post" asp-action="GenerateZip">
-    <button class="btn btn-success">Generate ZIP with Default Images</button>
-</form>
-
-<hr />
-
-<h3>Upload Edited ZIP</h3>
-
-<form method="post" asp-action="Commit" enctype="multipart/form-data">
-    <div class="form-group mb-2">
-        <input type="file" name="zipFile" class="form-control" />
+<!-- STEP 1: Download ZIP Template -->
+@if (ViewBag.ShowDownload != null && (bool)ViewBag.ShowDownload)
+{
+    <div class="alert alert-info">
+        <form method="post" asp-action="DownloadZip" style="display: inline;">
+            <button type="submit" class="btn btn-primary">📥 Download ZIP Template</button>
+        </form>
+        <br><small>Download → Replace default.jpg files with your images → Upload below</small>
     </div>
+}
 
-    <button class="btn btn-warning">Commit to Database</button>
+<!-- STEP 2: Upload modified ZIP & Commit -->
+<hr>
+<h3>Upload Images ZIP & Commit to Database</h3>
+<form method="post" asp-action="Commit" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label class="form-label">Images ZIP file <span class="text-danger">*</span>:</label>
+        <input type="file" name="zipFile" class="form-control" accept=".zip" required />
+        <small>Upload the ZIP you downloaded and modified with your images</small>
+    </div>
+    <button type="submit" class="btn btn-warning">Commit to Database</button>
+    <a asp-action="Index" class="btn btn-secondary">Back</a>
 </form>
-

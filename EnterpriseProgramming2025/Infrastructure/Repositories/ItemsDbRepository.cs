@@ -3,55 +3,82 @@ using Domain.Models;
 using EnterpriseProgramming2025.Data;
 using Microsoft.EntityFrameworkCore;
 
-public class ItemsDbRepository : IItemsRepository
+
+public class ItemsDbRepository : ItemsRepository
 {
-    private readonly ApplicationDbContext _context;
+    private readonly ApplicationDbContext context;
 
     public ItemsDbRepository(ApplicationDbContext context)
     {
-        _context = context;
+        this.context = context;
     }
 
-    public IQueryable<Restaurant> GetRestaurants(string status = "Approved")
+    public IQueryable<Restaurant> GetRestaurants(string? status = null)
     {
-        return _context.Restaurants.Where(r => r.Status == status);
+        var q = context.Restaurants.AsQueryable();
+        if (status != null)
+            q = q.Where(r => r.Status == status);
+        return q;
     }
 
-    public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string status = "Approved")
+    public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string? status = null)
     {
-        var query = _context.MenuItems
-            .Include(m => m.Restaurant)
-            .Where(m => m.Status == status);
+        var q = context.MenuItems
+                       .Include(m => m.Restaurant)
+                       .AsQueryable();
 
-        if (restaurantId != null)
-            query = query.Where(m => m.RestaurantId == restaurantId);
+        if (status != null)
+            q = q.Where(m => m.Status == status);
 
-        return query;
+        if (restaurantId.HasValue)
+            q = q.Where(m => m.RestaurantId == restaurantId.Value);
+
+        return q;
     }
 
     public void SaveRestaurants(IEnumerable<Restaurant> restaurants)
     {
-        _context.Restaurants.AddRange(restaurants);
-        _context.SaveChanges();
+        foreach (var r in restaurants)
+        {
+            // prevent duplicates
+            r.Status = "Pending";
+            context.Restaurants.Add(r);
+        }
+
+        context.SaveChanges();
     }
 
     public void SaveMenuItems(IEnumerable<MenuItem> items)
     {
-        _context.MenuItems.AddRange(items);
-        _context.SaveChanges();
+        foreach (var m in items)
+        {
+            if (!context.MenuItems.Any(db => db.Id == m.Id))
+            {
+                m.Status ??= "Pending";
+                context.MenuItems.Add(m);
+            }
+        }
+
+        context.SaveChanges();
     }
 
     public void ApproveRestaurants(IEnumerable<int> ids)
     {
-        var items = _context.Restaurants.Where(r => ids.Contains(r.Id)).ToList();
-        foreach (var item in items) item.Status = "Approved";
-        _context.SaveChanges();
+        var list = context.Restaurants.Where(r => ids.Contains(r.Id)).ToList();
+        foreach (var r in list)
+            r.Status = "Approved";
+
+        context.SaveChanges();
     }
 
     public void ApproveMenuItems(IEnumerable<Guid> ids)
     {
-        var items = _context.MenuItems.Where(m => ids.Contains(m.Id)).ToList();
-        foreach (var item in items) item.Status = "Approved";
-        _context.SaveChanges();
+        var list = context.MenuItems.Where(m => ids.Contains(m.Id)).ToList();
+        foreach (var m in list)
+            m.Status = "Approved";
+
+        context.SaveChanges();
     }
+
+    public void Clear() { }
 }

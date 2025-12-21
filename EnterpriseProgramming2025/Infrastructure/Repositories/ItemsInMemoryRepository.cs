@@ -1,49 +1,59 @@
 ﻿using Domain.Interfaces;
 using Domain.Models;
+using Microsoft.Extensions.Caching.Memory;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace Infrastructure.Repositories;
-
-public class ItemsInMemoryRepository : IItemsRepository
+namespace Infrastructure.Repositories
 {
-    private List<Restaurant> _restaurants = new();
-    private List<MenuItem> _menuItems = new();
-
-    public IQueryable<Restaurant> GetRestaurants(string status = "Approved")
+    public class ItemsInMemoryRepository : ItemsRepository
     {
-        return _restaurants
-            .Where(r => r.Status == status)
-            .AsQueryable();
-    }
+        private readonly IMemoryCache _cache;
+        private const string KEY = "BulkImportItems";
 
-    public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string status = "Approved")
-    {
-        var items = _menuItems.Where(m => m.Status == status);
+        public ItemsInMemoryRepository(IMemoryCache cache)
+        {
+            _cache = cache;
+        }
 
-        if (restaurantId != null)
-            items = items.Where(m => m.RestaurantId == restaurantId);
+        private List<ItemValidating> Items =>
+            _cache.GetOrCreate(KEY, _ => new List<ItemValidating>());
 
-        return items.AsQueryable();
-    }
+        public IQueryable<Restaurant> GetRestaurants(string? status = null)
+        {
+            var q = Items.OfType<Restaurant>().AsQueryable();
+            if (status != null)
+                q = q.Where(r => r.Status == status);
+            return q;
+        }
 
-    public void SaveRestaurants(IEnumerable<Restaurant> restaurants)
-    {
-        _restaurants = restaurants.ToList();
-    }
+        public IQueryable<MenuItem> GetMenuItems(int? restaurantId = null, string? status = null)
+        {
+            var q = Items.OfType<MenuItem>().AsQueryable();
+            if (status != null)
+                q = q.Where(m => m.Status == status);
+            if (restaurantId.HasValue)
+                q = q.Where(m => m.RestaurantId == restaurantId);
+            return q;
+        }
 
-    public void SaveMenuItems(IEnumerable<MenuItem> items)
-    {
-        _menuItems = items.ToList();
-    }
+        public void SaveRestaurants(IEnumerable<Restaurant> restaurants)
+        {
+            Items.AddRange(restaurants);
+        }
 
-    public void ApproveRestaurants(IEnumerable<int> ids)
-    {
-        foreach (var r in _restaurants.Where(r => ids.Contains(r.Id)))
-            r.Status = "Approved";
-    }
+        public void SaveMenuItems(IEnumerable<MenuItem> items)
+        {
+            Items.AddRange(items);
+        }
 
-    public void ApproveMenuItems(IEnumerable<Guid> ids)
-    {
-        foreach (var m in _menuItems.Where(m => ids.Contains(m.Id)))
-            m.Status = "Approved";
+        public void ApproveRestaurants(IEnumerable<int> ids) { }
+        public void ApproveMenuItems(IEnumerable<Guid> ids) { }
+
+        public void Clear()
+        {
+            _cache.Remove(KEY);
+        }
     }
 }

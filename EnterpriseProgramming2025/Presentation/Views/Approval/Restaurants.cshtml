@@ -1,31 +1,53 @@
 ﻿@model IEnumerable<Domain.Models.Restaurant>
 
-<h2>Pending Restaurants</h2>
+@{
+    ViewData["Title"] = "Pending Restaurants";
+}
 
-<form method="post" asp-action="ApproveRestaurants">
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>Approve</th>
-                <th>Name</th>
-                <th>Owner Email</th>
-                <th>Description</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var r in Model)
-            {
-                <tr>
-                    <td>
-                        <input type="checkbox" name="ids" value="@r.Id" />
-                    </td>
-                    <td>@r.Name</td>
-                    <td>@r.OwnerEmailAddress</td>
-                    <td>@r.Description</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+<h2 class="mb-3">Pending Restaurants</h2>
 
-    <button class="btn btn-success">Approve Selected</button>
-</form>
+@if (!(User.IsInRole("Admin") || User.IsInRole("Owner")))
+{
+        <div class="alert alert-info">
+            Only Admins or Restaurant Owners can approve restaurants.
+        </div>
+}
+else if (!Model.Any())
+{
+        <div class="alert alert-info">No restaurants are pending approval.</div>
+}
+else
+{
+        <form method="post"
+              asp-controller="Approval"
+              asp-action="ApproveRestaurants">
+
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>Select</th>
+                        <th>Name</th>
+                        <th>Owner Email</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model)
+                {
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="ids" value="@r.Id" />
+                                </td>
+                                <td>@r.Name</td>
+                                <td>@r.OwnerEmailAddress</td>
+                                <td>@r.Description</td>
+                            </tr>
+                }
+                </tbody>
+            </table>
+
+            <button type="submit" class="btn btn-success">
+                Approve Selected
+            </button>
+        </form>
+}

@@ -1,43 +1,88 @@
-﻿using Domain.Interfaces;
+﻿using System;
+using System.Linq;
+using Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EnterpriseProgramming2025.Presentation.Filters;
+using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseProgramming2025.Presentation.Controllers
 {
+    [Authorize]
     public class ApprovalController : Controller
     {
-        private readonly IItemsRepository _dbRepo;
+        private readonly ItemsRepository dbRepo;
 
-        public ApprovalController([FromKeyedServices("db")] IItemsRepository dbRepo)
+        public ApprovalController([FromKeyedServices("db")] ItemsRepository dbRepo)
         {
-            _dbRepo = dbRepo;
+            this.dbRepo = dbRepo;
         }
 
-        // List restaurants that are pending approval
+        // Admin sees pending restaurants
+        [Authorize(Roles = "Admin")]
         public IActionResult Restaurants()
         {
-            var pending = _dbRepo.GetRestaurants(status: "Pending").ToList();
+            var savedRestaurants = dbRepo.GetRestaurants(null).ToList();
+            var pending = dbRepo.GetRestaurants("Pending").ToList();
+            return View(pending);
+        }
+
+        // Owner sees their pending menu items
+        public IActionResult MenuItems()
+        {
+            var email = User.Identity?.Name ?? "";
+            // only menu items whose restaurant owner email matches user
+            var pending = dbRepo.GetMenuItems(null, "Pending")
+                                .Where(m => m.Restaurant != null &&
+                                            m.Restaurant.OwnerEmailAddress == email)
+                                .ToList();
             return View(pending);
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin,Owner")]
+        [ServiceFilter(typeof(ApprovalFilterAttribute))]
         public IActionResult ApproveRestaurants(int[] ids)
         {
-            _dbRepo.ApproveRestaurants(ids);
+            if (ids == null || ids.Length == 0)
+                return RedirectToAction("Restaurants");
+
+            dbRepo.ApproveRestaurants(ids);
+
             return RedirectToAction("Restaurants");
         }
 
-        // List menu items that are pending approval
-        public IActionResult MenuItems()
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult ApprovedRestaurants()
         {
-            var pending = _dbRepo.GetMenuItems(status: "Pending").ToList();
-            return View(pending);
+            var approved = dbRepo.GetRestaurants("Approved").ToList();
+            return View(approved);
         }
 
+
         [HttpPost]
+        [ServiceFilter(typeof(ApprovalFilterAttribute))]
         public IActionResult ApproveMenuItems(Guid[] ids)
         {
-            _dbRepo.ApproveMenuItems(ids);
+            if (ids == null || !ids.Any())
+                return RedirectToAction("MenuItems");
+
+            dbRepo.ApproveMenuItems(ids);
             return RedirectToAction("MenuItems");
         }
+
+        public IActionResult ApprovedMenuItems()
+        {
+            var email = User.Identity?.Name ?? "";
+
+            var approved = dbRepo.GetMenuItems(null, "Approved")
+                .Where(m => m.Restaurant != null &&
+                            m.Restaurant.OwnerEmailAddress == email)
+                .ToList();
+
+            return View(approved);
+        }
+
     }
 }

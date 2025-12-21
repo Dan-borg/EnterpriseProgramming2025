@@ -2,13 +2,5 @@
 
 <div class="border p-2 mb-2">
     <strong>@Model.Title</strong> — €@Model.Price
-
-    @if (!string.IsNullOrEmpty(Model.ImagePath))
-    {
-        <div>
-            <img src="@Model.ImagePath" width="120" />
-        </div>
-    }
-
     <p>Status: @Model.Status</p>
 </div>
