@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Domain.Interfaces;
+﻿using Domain.Interfaces;
 using Domain.Models;
 using Newtonsoft.Json.Linq;
 
@@ -14,60 +12,87 @@ namespace EnterpriseProgramming2025.Presentation.Factory
             var restaurantMap = new Dictionary<string, Restaurant>();
 
             if (string.IsNullOrWhiteSpace(json))
-                return result; // ✅ prevents null parse
+                return result;
 
-            var arr = JArray.Parse(json);
+            JArray arr;
+
+            try
+            {
+                arr = JArray.Parse(json);
+            }
+            catch
+            {
+                return result; // invalid JSON → safe exit
+            }
 
             // 1️⃣ Create restaurants
-            foreach (var token in arr.Where(x => x["type"]?.ToString() == "restaurant"))
+            foreach (var obj in arr.OfType<JObject>()
+                        .Where(o => o["type"]?.ToString() == "restaurant"))
             {
-                var obj = (JObject)token;
-
-                var r = new Restaurant
+                var restaurant = new Restaurant
                 {
                     Name = obj["name"]?.ToString() ?? "Unnamed",
-                    OwnerEmailAddress = obj["ownerEmailAddress"]?.ToString() ?? "",
+                    OwnerEmailAddress = obj["ownerEmailAddress"]?.ToString() ?? string.Empty,
                     Description = obj["description"]?.ToString(),
                     Status = "Pending"
                 };
 
-                var id = obj["id"]?.ToString()?.Trim();
-                if (!string.IsNullOrEmpty(id))
-                    restaurantMap[id] = r;
+                restaurant.ImportId = obj["id"]?.ToString();
 
-                result.Add(r);
+                var importId = ExtractValidId(obj);
+                if (importId != null && !restaurantMap.ContainsKey(importId))
+                {
+                    restaurantMap.Add(importId, restaurant);
+                }
+
+                result.Add(restaurant);
             }
 
-            // 2️⃣ Create menu items and link them
-            foreach (var token in arr.Where(x => x["type"]?.ToString() == "menuItem"))
-            {
-                var obj = (JObject)token;
 
+            // 2️⃣ Create menu items and link them
+            foreach (var obj in arr.OfType<JObject>()
+                        .Where(o => o["type"]?.ToString() == "menuItem"))
+            {
                 var menuItem = new MenuItem
                 {
                     Title = obj["title"]?.ToString() ?? "Unnamed item",
-                    Price = double.TryParse(obj["price"]?.ToString(), out var p) ? p : 0,
+                    Price = obj["price"]?.Value<double>() ?? 0,
                     Status = "Pending"
                 };
 
-                // handles " restaurantId " with spaces
-                var restaurantKey = obj.Properties()
-                    .FirstOrDefault(p => p.Name.Trim() == "restaurantId")
-                    ?.Value
-                    ?.ToString()
-                    ?.Trim();
+                menuItem.ImportId = obj["id"]?.ToString();
 
-                if (restaurantKey != null &&
-                    restaurantMap.TryGetValue(restaurantKey, out var restaurant))
+                var restaurantId = obj["restaurantId"]?.ToString()?.Trim();
+
+                if (!string.IsNullOrWhiteSpace(restaurantId) &&
+                    restaurantMap.TryGetValue(restaurantId, out var restaurant))
                 {
                     menuItem.Restaurant = restaurant;
-                    menuItem.RestaurantId = restaurant.Id;
                 }
 
                 result.Add(menuItem);
             }
 
             return result;
+        }
+
+        private static string? ExtractValidId(JObject obj)
+        {
+            var token = obj["id"];
+            if (token == null)
+
+                return null;
+
+            // Numeric 0 → ignore
+            if (token.Type == JTokenType.Integer && token.Value<long>() == 0)
+                return null;
+
+            var value = token.ToString().Trim();
+
+            if (string.IsNullOrWhiteSpace(value) || value == "0")
+                return null;
+
+            return value;
         }
     }
 }

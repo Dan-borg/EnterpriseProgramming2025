@@ -25,6 +25,7 @@ namespace Domain.Models
         public string Status { get; set; } = "Pending";
 
         public string? ImagePath { get; set; }
+        public string? ImportId { get; set; }
 
         public List<string> GetValidators()
         {

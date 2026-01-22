@@ -32,7 +32,7 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
         {
             var email = User.Identity?.Name ?? "";
             // only menu items whose restaurant owner email matches user
-            var pending = dbRepo.GetMenuItems(null, "Pending")
+            var pending = dbRepo.GetMenuItems(null, "Pending").AsEnumerable()
                                 .Where(m => m.Restaurant != null &&
                                             m.Restaurant.OwnerEmailAddress == email)
                                 .ToList();

@@ -23,6 +23,7 @@ namespace Domain.Models
 
         [Required]
         public string Status { get; set; } = "Pending";
+        public string? ImportId { get; set; }
 
         public List<string> GetValidators()
         {

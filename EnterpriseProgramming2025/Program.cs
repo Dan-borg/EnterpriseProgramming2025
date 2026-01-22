@@ -19,6 +19,15 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Identity/Account/Login";
+    options.LogoutPath = "/Identity/Account/Logout";
+    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    options.SlidingExpiration = true;
+});
+
+
 // MVC + custom view locations (your project already has this pattern)
 builder.Services.AddControllersWithViews()
     .AddRazorOptions(options =>
@@ -84,6 +93,24 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.Use(async (context, next) =>
+{
+    var identity = context.User?.Identity;
+
+    // If IIS injected a Windows identity, discard it
+    if (identity != null &&
+        identity.IsAuthenticated &&
+        identity.AuthenticationType != "Identity.Application")
+    {
+        context.User = new System.Security.Claims.ClaimsPrincipal(
+            new System.Security.Claims.ClaimsIdentity()
+        );
+    }
+
+    await next();
+});
+
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -137,5 +164,76 @@ using (var scope = app.Services.CreateScope())
         await userManager.AddToRoleAsync(user, "Owner");
 }
 
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+    const string ownerRole = "Owner";
+    const string ownerEmail = "hana.owner@example.com";
+    const string ownerPassword = "Owner123!";
+
+    // Ensure Owner role exists
+    if (!await roleManager.RoleExistsAsync(ownerRole))
+    {
+        await roleManager.CreateAsync(new IdentityRole(ownerRole));
+    }
+
+    // Ensure owner user exists
+    var user = await userManager.FindByEmailAsync(ownerEmail);
+    if (user == null)
+    {
+        user = new IdentityUser
+        {
+            UserName = ownerEmail,
+            Email = ownerEmail,
+            EmailConfirmed = true
+        };
+
+        await userManager.CreateAsync(user, ownerPassword);
+    }
+
+    // Ensure user is in Owner role
+    if (!await userManager.IsInRoleAsync(user, ownerRole))
+    {
+        await userManager.AddToRoleAsync(user, ownerRole);
+    }
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+
+    const string ownerRole = "Owner";
+    const string ownerEmail = "luca.owner@example.com";
+    const string ownerPassword = "Owner123!";
+
+    // Ensure Owner role exists
+    if (!await roleManager.RoleExistsAsync(ownerRole))
+    {
+        await roleManager.CreateAsync(new IdentityRole(ownerRole));
+    }
+
+    // Ensure owner user exists
+    var user = await userManager.FindByEmailAsync(ownerEmail);
+    if (user == null)
+    {
+        user = new IdentityUser
+        {
+            UserName = ownerEmail,
+            Email = ownerEmail,
+            EmailConfirmed = true
+        };
+
+        await userManager.CreateAsync(user, ownerPassword);
+    }
+
+    // Ensure user is in Owner role
+    if (!await userManager.IsInRoleAsync(user, ownerRole))
+    {
+        await userManager.AddToRoleAsync(user, ownerRole);
+    }
+}
 
 app.Run();

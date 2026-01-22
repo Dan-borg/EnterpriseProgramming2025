@@ -75,14 +75,14 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
             {
                 foreach (var r in restaurants)
                 {
-                    var entry = zip.CreateEntry($"item-{r.Id}/default.jpg");
+                    var entry = zip.CreateEntry($"item-{r.ImportId}/default.jpg");
                     using var stream = entry.Open();
                     stream.WriteByte(0); 
                 }
 
                 foreach (var m in menuItems)
                 {
-                    var entry = zip.CreateEntry($"item-{m.Id}/default.jpg");
+                    var entry = zip.CreateEntry($"item-{m.ImportId}/default.jpg");
                     using var stream = entry.Open();
                     stream.WriteByte(0);
                 }
@@ -108,7 +108,7 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
 
             using (var zip = new ZipArchive(zipFile.OpenReadStream()))
             {
-                foreach (var entry in zip.Entries.Where(e => e.Name == "default.jpg"))
+                foreach (var entry in zip.Entries.Where(entry => entry.Name.Contains(".jpg") || entry.Name.Contains(".png")))
                 {
                     var id = Path.GetDirectoryName(entry.FullName)?.Replace("item-", "");
                     var imgName = $"{Guid.NewGuid()}.jpg";
@@ -117,11 +117,18 @@ namespace EnterpriseProgramming2025.Presentation.Controllers
 
                     var rel = $"images/{imgName}";
 
-                    if (int.TryParse(id, out var rid))
-                        restaurants.First(r => r.Id == rid).ImagePath = rel;
+                    var restaurant = restaurants.FirstOrDefault(r => r.ImportId == id);
+                    if (restaurant != null)
+                    {
+                        restaurant.ImagePath = rel;
+                        continue;
+                    }
 
-                    if (Guid.TryParse(id, out var mid))
-                        menuItems.First(m => m.Id == mid).ImagePath = rel;
+                    var menuItem = menuItems.FirstOrDefault(m => m.ImportId == id);
+                    if (menuItem != null)
+                    {
+                        menuItem.ImagePath = rel;
+                    }
                 }
             }
 
